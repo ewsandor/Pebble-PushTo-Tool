@@ -46,6 +46,7 @@ INTERACTIONS = {
     "ui-repeat": ("navigation", "sanity"),
     "ui-flashlight": ("navigation", "sanity"),
     "ui-location-refresh": ("navigation", "sanity"),
+    "ui-location-scroll": ("navigation", "sanity"),
     "ui-weather": ("weather", "sanity"),
     "ui-fields": ("display", "comprehensive"),
     "ui-location-error": ("navigation", "comprehensive"),
@@ -640,6 +641,22 @@ print("TEST_INTERACTIONS_COMPLETE")
             ])[0]
             if capture[0][0] != "1" or capture[4] != "Updating location...":
                 raise AssertionError("Long Down did not show the location refresh notice")
+        elif name == "ui-location-scroll":
+            self.navigate(0, 0, objects)
+            self.capture({"CFG_BANNER": 1, "CFG_SHOW_EVENT": 1,
+                          "CFG_MIN_ELEV_ENABLED": 1, "CFG_MIN_ELEV": 0})
+            captures = self.quick_interactions([
+                ("wait", 2), ("click", "down", 0.9), ("capture",),
+                *[("click", "down", 0.1) for _ in range(15)],
+                ("wait", 3), ("capture",),
+                ("click", "up", 0.1), ("wait", 1), ("capture",),
+            ])
+            if captures[0][4] != "Updating location...":
+                raise AssertionError("Long Down did not trigger a location refresh")
+            if captures[1][1][0] != 0 or captures[2][1][0] != 0:
+                raise AssertionError("Location refresh scrolling changed the catalog")
+            if captures[1][1][1] == captures[2][1][1]:
+                raise AssertionError("Object navigation stopped after location refresh")
         elif name == "ui-weather":
             self.navigate(1, 7, objects)
             self.capture({"LOC_LAT_E6": 90000000, "LOC_LON_E6": 0,
