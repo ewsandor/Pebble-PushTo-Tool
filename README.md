@@ -15,8 +15,8 @@ See [limitations](#limitations-and-open-issues) before using it.
   Azimuth is measured clockwise from true north. Display refresh and optional
   0.01° precision are configurable.
 - On-watch catalogs for the Sun, Moon, planets and selected minor planets; the
-  100 brightest stars; 110 Messier objects; and the centers of the 88 IAU
-  constellations. M102 is represented by NGC 5866.
+  100 brightest stars; 110 Messier objects; the 110 RASC Finest NGC objects;
+  and the centers of the 88 IAU constellations. M102 is represented by NGC 5866.
 - Phone GPS at startup and hourly, with manual coordinates as an alternative
   and a persisted last fix. Astronomy calculations run on the watch without
   phone round-trips.
