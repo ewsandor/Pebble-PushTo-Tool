@@ -18,8 +18,16 @@
 #define STATUS_TEXT_INK_H 11
 #define FOOTER_TEXT_INK_H 14
 
+#if defined(PBL_PLATFORM_EMERY)
+#define CAPTION_INK_TOP GOTHIC_18_INK_TOP
+#define CAPTION_INK_H 11
+#else
+#define CAPTION_INK_TOP 5
+#define CAPTION_INK_H 9
+#endif
+
 typedef struct {
-  int16_t status_h, label_y, label_h, label_ink_bottom, footer_y;
+  int16_t status_h, label_y, label_h, label_ink_top, label_ink_bottom, footer_y;
   const char *status_font, *label_font, *caption_font, *footer_font;
   bool round;
 } Layout;
@@ -65,7 +73,7 @@ static const uint32_t s_icon_resources[] = {
 
 static Layout layout(void) {
 #if defined(PBL_PLATFORM_EMERY)
-  return (Layout){.status_h = 24, .label_y = 24, .label_h = 26, .label_ink_bottom = 28, .footer_y = 200,
+  return (Layout){.status_h = 24, .label_y = 24, .label_h = 26, .label_ink_top = 10, .label_ink_bottom = 26, .footer_y = 200,
     .status_font = FONT_KEY_GOTHIC_18_BOLD, .label_font = FONT_KEY_GOTHIC_24_BOLD,
     .caption_font = FONT_KEY_GOTHIC_18_BOLD, .footer_font = FONT_KEY_GOTHIC_18};
 #elif defined(PBL_PLATFORM_GABBRO)
@@ -77,7 +85,7 @@ static Layout layout(void) {
     .status_font = FONT_KEY_GOTHIC_14_BOLD, .label_font = FONT_KEY_GOTHIC_18_BOLD,
     .caption_font = FONT_KEY_GOTHIC_14_BOLD};
 #else
-  return (Layout){.status_h = 20, .label_y = 18, .label_h = 22, .label_ink_bottom = 21, .footer_y = 144,
+  return (Layout){.status_h = 20, .label_y = 18, .label_h = 22, .label_ink_top = 7, .label_ink_bottom = 19, .footer_y = 144,
     .status_font = FONT_KEY_GOTHIC_18_BOLD, .label_font = FONT_KEY_GOTHIC_18_BOLD,
     .caption_font = FONT_KEY_GOTHIC_14_BOLD, .footer_font = FONT_KEY_GOTHIC_18};
 #endif
@@ -124,18 +132,13 @@ static void choose_font(const Layout *item, int16_t width) {
 }
 
 static void draw_coordinates(GContext *context, GSize size, const Layout *item) {
-#if defined(PBL_PLATFORM_EMERY)
-  const int caption_top = GOTHIC_18_INK_TOP, caption_h = 11;
-#else
-  const int caption_top = 5, caption_h = 9;
-#endif
   int width = size.w;
   int digit_top = s_value_metrics->ink_top;
   int digit_h = s_value_metrics->ink_h;
   int y = item->label_y - 2 + item->label_ink_bottom;
   // Chalk has no footer; reserve the narrow bottom of its circular display.
   int bottom = item->footer_font ? item->footer_y : size.h - 18;
-  int spare = bottom - y - 2 * (caption_h + digit_h);
+  int spare = bottom - y - 2 * (CAPTION_INK_H + digit_h);
   GTextAlignment caption_align = item->round ? GTextAlignmentCenter : GTextAlignmentLeft;
   GTextAlignment value_align = item->round ? GTextAlignmentCenter : GTextAlignmentRight;
   const StringId captions[] = {STR_AZ, STR_EL};
@@ -144,9 +147,9 @@ static void draw_coordinates(GContext *context, GSize size, const Layout *item) 
   // Distribute spare pixels across the five gaps, at most one pixel apart.
   for (int i = 0; i < 2; ++i) {
     int caption_y = y + ((2 * i + 1) * spare + 2) / 5;
-    int value_y = y + caption_h + ((2 * i + 2) * spare + 2) / 5;
+    int value_y = y + CAPTION_INK_H + ((2 * i + 2) * spare + 2) / 5;
     draw_text(context, l10n(captions[i]), item->caption_font,
-              GRect(item->round ? 0 : 4, caption_y - caption_top,
+              GRect(item->round ? 0 : 4, caption_y - CAPTION_INK_TOP,
                     item->round ? width : 30, 20), caption_align);
     graphics_draw_text(context, values[i], s_value_font,
                        GRect(0, value_y - digit_top, width - (item->round ? 0 : 4), 60),
@@ -158,8 +161,14 @@ static void draw_coordinates(GContext *context, GSize size, const Layout *item) 
       APP_LOG(APP_LOG_LEVEL_INFO, "TEST_ROW %lu %d %d %d %d %d",
               (unsigned long)s_capture, i, x, value_y, ink_w, digit_h);
     }
-    y += caption_h + digit_h;
+    y += CAPTION_INK_H + digit_h;
   }
+}
+
+static void draw_separator(GContext *context, int width, int y) {
+  graphics_context_set_stroke_color(context, s_screen->inverted ? GColorWhite : GColorBlack);
+  graphics_context_set_stroke_width(context, 1);
+  graphics_draw_line(context, GPoint(0, y), GPoint(width, y));
 }
 
 static void draw_icon(GContext *context, unsigned icon, int x, int y, int size) {
@@ -245,7 +254,7 @@ static void draw_footer(GContext *context, GRect bounds, const Layout *item) {
   int footer_y = item->footer_y;
   int text_y = footer_y;
   if (!item->round) {
-    graphics_draw_line(context, GPoint(0, footer_y), GPoint(width, footer_y));
+    draw_separator(context, width, footer_y);
     int top = footer_y + 1;
     text_y = top + (bounds.size.h - top - FOOTER_TEXT_INK_H) / 2 - GOTHIC_18_INK_TOP;
   }
@@ -297,13 +306,18 @@ static void draw_footer(GContext *context, GRect bounds, const Layout *item) {
             GRect(4, text_y, width - 8, 24), GTextAlignmentRight);
 }
 
-static void draw_main(GContext *context, GRect bounds, const Layout *item) {
+static void draw_main(GContext *context, GRect bounds, Layout *item) {
   int width = bounds.size.w;
   int icon_size = width >= 200 ? 25 : 18;
   if (!s_font_initialized || s_font_precise != s_screen->precise) {
     choose_font(item, width);
   }
   if (!item->round) {
+    // The label's nominal bottom balances names with and without descenders.
+    int label_h = item->label_ink_bottom - item->label_ink_top;
+    int spare = item->footer_y - item->status_h - 1 - label_h -
+                2 * (CAPTION_INK_H + s_value_metrics->ink_h);
+    item->label_y = item->status_h + 1 + spare / 6 - item->label_ink_top + 2;
     int time_y = (item->status_h - STATUS_TEXT_INK_H + 1) / 2 - GOTHIC_18_INK_TOP;
     int icon_y = (item->status_h - icon_size) / 2;
     draw_text(context, s_screen->clock, item->status_font,
@@ -318,7 +332,7 @@ static void draw_main(GContext *context, GRect bounds, const Layout *item) {
       x -= icon_size;
     }
     if (s_screen->flashlight) draw_icon(context, 5, x, icon_y, icon_size);
-    graphics_draw_line(context, GPoint(0, item->status_h), GPoint(width, item->status_h));
+    draw_separator(context, width, item->status_h);
     draw_text(context, s_screen->label, item->label_font,
               GRect(4, item->label_y - 2, width - 8, item->label_h), GTextAlignmentLeft);
   } else {

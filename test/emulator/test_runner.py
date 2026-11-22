@@ -98,6 +98,32 @@ class RunnerTests(unittest.TestCase):
                 with self.subTest(rows=invalid), self.assertRaises(AssertionError):
                     run.validate_image(path, "basalt", invalid, False)
 
+    def test_main_layout_checks_spacing_and_separator_thickness(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "screen.png"
+            rows = {0: (40, 65, 100, 20), 1: (40, 116, 100, 20)}
+            for inverted in (False, True):
+                background, ink = (0, 255) if inverted else (255, 0)
+                image = Image.new("L", (144, 168), background)
+                draw = ImageDraw.Draw(image)
+                draw.line((0, 20, 143, 20), fill=ink)
+                draw.line((0, 144, 143, 144), fill=ink)
+                draw.rectangle((4, 29, 30, 40), fill=ink)
+                draw.rectangle((4, 49, 20, 57), fill=ink)
+                draw.rectangle((40, 116, 139, 135), fill=ink)
+                image.resize((864, 1008), Image.Resampling.NEAREST).save(path)
+                run.validate_main_layout(path, "basalt", rows, inverted)
+                draw.line((0, 19, 143, 19), fill=ink)
+                image.resize((864, 1008), Image.Resampling.NEAREST).save(path)
+                with self.assertRaisesRegex(AssertionError, "one pixel"):
+                    run.validate_main_layout(path, "basalt", rows, inverted)
+                draw.line((0, 19, 143, 19), fill=background)
+                draw.rectangle((4, 29, 30, 40), fill=background)
+                draw.rectangle((4, 23, 30, 34), fill=ink)
+                image.resize((864, 1008), Image.Resampling.NEAREST).save(path)
+                with self.assertRaisesRegex(AssertionError, "Uneven"):
+                    run.validate_main_layout(path, "basalt", rows, inverted)
+
     def test_references_cover_independent_vectors_and_all_solar_entries(self):
         objects = run.catalogs()
         sanity = run.reference_cases("sanity", objects)
