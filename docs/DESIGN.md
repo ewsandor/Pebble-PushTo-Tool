@@ -100,6 +100,7 @@ design intent is retained where it differs.
 | CAT-3 | **Brightest Stars**: the 100 brightest stars, brightest first | ✅ | §8.5 |
 | CAT-4 | **Messier**: the 110 objects, in order M1…M110 | ✅ | §8.5 |
 | CAT-5 | **IAU Constellations**: the centers of all 88 | ✅ | §8.5 |
+| CAT-9 | **RASC Finest NGC**: the 110-object visual observing list | ✅ | §8.5 |
 | CAT-6 | Catalogs stored on the watch if they fit | ✅ packed on watch; 9,785-byte catalog pack | §8.3 |
 | CAT-7 | Extendable: a catalog file plus a registration step | ✅ CSV + one line in `catalogs.json` | §8.2 |
 | CAT-8 | Future: imported files, favorites, observation plans, dynamic catalogs | 🔮 extension points defined | §15 |
@@ -1062,6 +1063,7 @@ refactor, not a current extension API.
 | **Sol System** | Sun, Mercury, Venus, **Moon** (in Earth's place), Mars, Jupiter, Saturn, Uranus, Neptune, Pluto, then the minor planets by semi-major axis: **Vesta (2.36 AU), Juno (2.67), Ceres (2.77), Pallas (2.77)** | name; computed position and magnitude | VSOP87 (IMCCE, via CDS), Meeus, NASA/JPL Horizons and SBDB |
 | **Brightest Stars** | The 100 brightest stars by apparent V magnitude, excluding the Sun, **sorted brightest to dimmest** (Sirius first). Components the eye cannot separate (closer than 1′, e.g. α Cen A+B, α Cru A+B) are **merged into one entry with the combined magnitude**, at the brighter component's position. | ID = Bayer/Flamsteed in ASCII (`alf CMa`); name = IAU proper name if any; J2000 position, proper motion, V | **Yale Bright Star Catalogue, 5th ed.** (Hoffleit & Warren 1991, Yale University Observatory), from **NASA HEASARC** (table BSC5P, also CDS V/50); names from the **IAU** WGSN |
 | **Messier** | M1…M110 | ID `M31`; common name if any; J2000 position; V magnitude; type | **NASA HEASARC** Messier table (from *Sky Catalogue 2000.0*). HEASARC lists 109 objects and omits M102; the usual identification, **M102 = NGC 5866**, is added from the HEASARC NGC 2000.0 table and noted in the CSV. Cross-checked with SIMBAD (CDS). |
+| **RASC Finest NGC** | The 110 objects from the RASC Finest NGC visual observing program, in the official FNGC checklist order | ID `NGC 7331`; common name when available; J2000 position; V magnitude; type | **Royal Astronomical Society of Canada** Finest NGC checklist, with positions and magnitudes cross-checked against **NASA HEASARC NGC 2000.0** and common names from **OpenNGC** (CC-BY-SA-4.0). |
 | **IAU Constellations** | All 88, alphabetical by Latin name | ID = IAU 3-letter abbreviation; name = Latin name; center | **IAU** official boundaries (Delporte 1930), as digitized by Davenhall & Leggett (1989), CDS VizieR VI/49. The center is the **area centroid on the sphere of the J2000 boundary polygon**, computed by the tool. **Serpens** uses the centroid of **Serpens Caput**, the larger part (ID `Ser`, 88 entries in total). |
 
 Position precision of these sources is ample for the display. BSC5 J2000 positions are given to

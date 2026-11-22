@@ -1,4 +1,5 @@
 import base64
+import csv
 import math
 import struct
 import tempfile
@@ -55,6 +56,21 @@ class FetchCatalogTests(unittest.TestCase):
             provider, data = build_catalogs._compile_catalog(Path(directory) / "test.csv")
             self.assertEqual(provider, 0)
             self.assertGreater(len(data), 20)
+
+    def test_rasc_catalog_has_110_unique_objects(self):
+        catalog = fetch_catalogs.CATALOG_DIR / "rasc_finest_ngc.csv"
+        with catalog.open(encoding="utf-8-sig", newline="") as source:
+            rows = list(csv.DictReader(line for line in source if not line.startswith("#")))
+        identifiers = [row["id"] for row in rows]
+        self.assertEqual(len(identifiers), 110)
+        self.assertEqual(len(set(identifiers)), 110)
+        self.assertTrue(all(identifier.startswith("NGC ") for identifier in identifiers))
+        self.assertEqual(identifiers[0], "NGC 891")
+        self.assertEqual(identifiers[-1], "NGC 6940")
+        by_id = {row["id"]: row for row in rows}
+        self.assertEqual(by_id["NGC 2392"]["name"], "Clown Face")
+        self.assertEqual(by_id["NGC 7331"]["name"], "Deer Lick Group")
+        self.assertEqual(by_id["NGC 4565"]["name"], "Needle Galaxy")
 
 
 if __name__ == "__main__":

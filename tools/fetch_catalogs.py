@@ -287,6 +287,47 @@ def constellations():
     return result
 
 
+def rasc_finest_ngc():
+    print("Fetching RASC Finest NGC objects...")
+    catalog_path = CATALOG_DIR / "rasc_finest_ngc.csv"
+    with catalog_path.open(encoding="utf-8-sig", newline="") as source:
+        rows_by_id = {
+            row["id"]: row
+            for row in csv.DictReader(
+                line for line in source if not line.startswith("#")
+            )
+        }
+    identifiers = list(rows_by_id)
+    if len(identifiers) != 110 or len(set(identifiers)) != 110:
+        raise ValueError("RASC Finest NGC catalog must contain 110 unique objects")
+    quoted = ", ".join(repr(identifier) for identifier in identifiers)
+    rows = tap(
+        f"SELECT name,ra,dec,app_mag,object_type FROM ngc2000 "
+        f"WHERE name IN ({quoted})"
+    )
+    by_id = {}
+    for row in rows:
+        if row["name"] in by_id:
+            raise ValueError(f"Duplicate NGC designation: {row['name']}")
+        by_id[row["name"]] = row
+    missing = set(identifiers) - set(by_id)
+    if missing:
+        raise ValueError(f"Missing RASC Finest NGC objects: {sorted(missing)}")
+    types = {
+        "Di": "nebula", "Gb": "globular_cluster", "OC": "open_cluster",
+        "Pl": "planetary_nebula", "E": "galaxy", "Ir": "galaxy", "S": "galaxy",
+    }
+    return [
+        fixed_row(
+            identifier, rows_by_id[identifier].get("name", ""),
+            by_id[identifier]["ra"], by_id[identifier]["dec"],
+            by_id[identifier]["app_mag"],
+            object_type=types.get(by_id[identifier]["object_type"], "other"),
+        )
+        for identifier in identifiers
+    ]
+
+
 def write_catalog(filename, title, short_title, source, license_name, rows):
     fields = ("id", "name", "ra_deg", "dec_deg", "pm_ra_mas_yr",
               "pm_dec_mas_yr", "mag", "type")
@@ -304,6 +345,7 @@ def write_catalog(filename, title, short_title, source, license_name, rows):
 def main():
     stars = bright_stars()
     objects = messier()
+    finest_ngc = rasc_finest_ngc()
     areas = constellations()
     write_catalog(
         "brightest_stars.csv", "Brightest Stars", "Stars",
@@ -314,6 +356,12 @@ def main():
         "messier.csv", "Messier", "Messier",
         "NASA HEASARC Messier and NGC 2000.0 (NGC 5866 for M102)",
         "NGC 2000.0: Sky Publishing; scientific research only", objects,
+    )
+    write_catalog(
+        "rasc_finest_ngc.csv", "RASC Finest NGC", "Finest NGC",
+        "Royal Astronomical Society of Canada Finest NGC checklist; NASA HEASARC NGC 2000.0; common names from OpenNGC",
+        "RASC observing-program list; NGC 2000.0: Sky Publishing; OpenNGC CC-BY-SA-4.0; scientific research only",
+        finest_ngc,
     )
     write_catalog(
         "constellations.csv", "IAU Constellations", "Constellations",
