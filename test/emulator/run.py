@@ -46,6 +46,7 @@ INTERACTIONS = {
     "ui-repeat": ("navigation", "sanity"),
     "ui-flashlight": ("navigation", "sanity"),
     "ui-location-refresh": ("navigation", "sanity"),
+    "ui-main-layout": ("display", "sanity"),
     "ui-weather": ("weather", "sanity"),
     "ui-fields": ("display", "comprehensive"),
     "ui-location-error": ("navigation", "comprehensive"),
@@ -253,6 +254,39 @@ def validate_image(path, platform, rows, inverted):
             raise AssertionError("Coordinate row is blank or filled instead of rendered")
     if rows[0][1] + rows[0][3] >= rows[1][1]:
         raise AssertionError("Coordinate rows overlap")
+
+
+def validate_main_layout(path, platform, rows, inverted):
+    if platform in ("chalk", "gabbro"):
+        return
+    with Image.open(path) as source:
+        image = source.convert("L").resize(SIZES[platform], Image.Resampling.NEAREST)
+    width, _ = image.size
+    top, bottom = (24, 200) if platform == "emery" else (20, 144)
+
+    def foreground(x, y):
+        pixel = image.getpixel((x, y))
+        return pixel > 128 if inverted else pixel < 128
+
+    for y in (top, bottom):
+        for line in (y - 1, y, y + 1):
+            count = sum(foreground(x, line) for x in range(width))
+            if (line == y and count != width) or (line != y and count > width // 2):
+                raise AssertionError(f"Separator at {y} is not one pixel thick")
+
+    occupied = [y for y in range(top + 1, rows[0][1])
+                if any(foreground(x, y) for x in range(width))]
+    groups = []
+    for y in occupied:
+        if not groups or y > groups[-1][-1] + 1:
+            groups.append([])
+        groups[-1].append(y)
+    if len(groups) != 2:
+        raise AssertionError(f"Expected catalog and AZ ink above coordinates: {groups}")
+    gaps = (groups[0][0] - top - 1, groups[1][0] - groups[0][-1] - 1,
+            bottom - (rows[1][1] + rows[1][3]))
+    if max(gaps) - min(gaps) > 4:
+        raise AssertionError(f"Uneven main screen spacing: {gaps}")
 
 
 class Emulator:
@@ -640,6 +674,21 @@ print("TEST_INTERACTIONS_COMPLETE")
             ])[0]
             if capture[0][0] != "1" or capture[4] != "Updating location...":
                 raise AssertionError("Long Down did not show the location refresh notice")
+        elif name == "ui-main-layout":
+            for precise in (0, 1) if supports_precise_display(self.platform) else (0,):
+                for inverted in (0, 1):
+                    screen, _, rows = self.capture({"CFG_PRECISION": precise, "CFG_INVERT": inverted})
+                    image = self.output / f"{name}.png"
+                    self.screenshot(image)
+                    validate_main_layout(image, self.platform, rows, inverted)
+                    image.unlink()
+            screen, _, rows = self.capture({"LOC_ERROR": 2})
+            if self.details[2] != "4" or screen[0] != "0":
+                raise AssertionError("Expected the main screen with the location warning icon")
+            image = self.output / f"{name}.png"
+            self.screenshot(image)
+            validate_main_layout(image, self.platform, rows, True)
+            image.unlink()
         elif name == "ui-weather":
             self.navigate(1, 7, objects)
             self.capture({"LOC_LAT_E6": 90000000, "LOC_LON_E6": 0,

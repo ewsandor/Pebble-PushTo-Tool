@@ -378,14 +378,17 @@ The precise-coordinate case is reported as skipped on 64 KB platforms, which
 always display 0.1°; it remains active on Emery and Gabbro.
 It also tests banner navigation and dismissal, held-button repeat and release,
 flashlight toggle, location refresh, and weather temperature/refraction.
+It also checks rectangular main-screen spacing and one-pixel separators in both
+display themes and available precisions, including a status-icon case.
 Comprehensive adds clock/event/magnitude and label settings, location-error
 recovery, elevation filtering, the no-matching-objects notice, and Back from the
 main screen.
 The phone settings page and catalog corruption/evaluation errors are not covered
 by these emulator interactions. Interaction checks read rendered-frame state,
-not OCR: the screenshot ink/geometry checks apply to coordinate rows, not
-banner or optional-field text. Chalk intentionally has no event/magnitude footer
-or temperature text, although their screen state is still checked.
+not OCR: screenshot ink/geometry checks apply to coordinate rows and rectangular
+main-screen spacing, not banner or optional-field text. Chalk intentionally has
+no event/magnitude footer or temperature text, although their screen state is
+still checked.
 Both tiers also check that a running app survives a backward UTC clock change.
 That regression is explicitly quarantined for release/Basalt, Chalk and Diorite,
 and debug/Basalt and Chalk, due to a
