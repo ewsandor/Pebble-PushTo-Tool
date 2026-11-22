@@ -421,8 +421,9 @@ static void draw_banner(GContext *context, GRect bounds, const Layout *item) {
   int id_y = item->round && small ? 58 : height / 2 - (small ? 44 : 50);
   const char *primary = s_screen->banner_id[0] ? s_screen->banner_id : s_screen->banner_name;
   const char *secondary = s_screen->banner_id[0] ? s_screen->banner_name : "";
-  const char *primary_fonts[] = {FONT_KEY_BITHAM_42_BOLD, FONT_KEY_GOTHIC_28_BOLD,
-                                 FONT_KEY_GOTHIC_24_BOLD, FONT_KEY_GOTHIC_18_BOLD};
+  const char *primary_fonts[] = {FONT_KEY_BITHAM_42_BOLD, FONT_KEY_BITHAM_30_BLACK,
+                                 FONT_KEY_GOTHIC_28_BOLD, FONT_KEY_GOTHIC_24_BOLD,
+                                 FONT_KEY_GOTHIC_18_BOLD};
   const char *primary_font = fit_font(primary, width - 2 * side,
                                      primary_fonts, ARRAY_LENGTH(primary_fonts));
   draw_text(context, primary, primary_font,
