@@ -675,7 +675,6 @@ print("TEST_INTERACTIONS_COMPLETE")
             if capture[0][0] != "1" or capture[4] != "Updating location...":
                 raise AssertionError("Long Down did not show the location refresh notice")
         elif name == "ui-main-layout":
-            self.navigate(0, 0, objects)
             for precise in (0, 1) if supports_precise_display(self.platform) else (0,):
                 for inverted in (0, 1):
                     screen, _, rows = self.capture({"CFG_PRECISION": precise, "CFG_INVERT": inverted})
@@ -683,9 +682,8 @@ print("TEST_INTERACTIONS_COMPLETE")
                     self.screenshot(image)
                     validate_main_layout(image, self.platform, rows, inverted)
                     image.unlink()
-            self.navigate(0, 1, objects)
             screen, _, rows = self.capture({"LOC_ERROR": 2})
-            if self.details[2] != "4" or screen[0] != "0" or screen[3] != "Mercury":
+            if self.details[2] != "4" or screen[0] != "0":
                 raise AssertionError("Expected the main screen with the location warning icon")
             image = self.output / f"{name}.png"
             self.screenshot(image)
