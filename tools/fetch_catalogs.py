@@ -291,12 +291,13 @@ def rasc_finest_ngc():
     print("Fetching RASC Finest NGC objects...")
     catalog_path = CATALOG_DIR / "rasc_finest_ngc.csv"
     with catalog_path.open(encoding="utf-8-sig", newline="") as source:
-        identifiers = [
-            row["id"]
+        rows_by_id = {
+            row["id"]: row
             for row in csv.DictReader(
                 line for line in source if not line.startswith("#")
             )
-        ]
+        }
+    identifiers = list(rows_by_id)
     if len(identifiers) != 110 or len(set(identifiers)) != 110:
         raise ValueError("RASC Finest NGC catalog must contain 110 unique objects")
     quoted = ", ".join(repr(identifier) for identifier in identifiers)
@@ -318,7 +319,8 @@ def rasc_finest_ngc():
     }
     return [
         fixed_row(
-            identifier, "", by_id[identifier]["ra"], by_id[identifier]["dec"],
+            identifier, rows_by_id[identifier].get("name", ""),
+            by_id[identifier]["ra"], by_id[identifier]["dec"],
             by_id[identifier]["app_mag"],
             object_type=types.get(by_id[identifier]["object_type"], "other"),
         )
@@ -357,8 +359,8 @@ def main():
     )
     write_catalog(
         "rasc_finest_ngc.csv", "RASC Finest NGC", "Finest NGC",
-        "Royal Astronomical Society of Canada Finest NGC checklist; NASA HEASARC NGC 2000.0",
-        "RASC observing-program list; NGC 2000.0: Sky Publishing; scientific research only",
+        "Royal Astronomical Society of Canada Finest NGC checklist; NASA HEASARC NGC 2000.0; common names from OpenNGC",
+        "RASC observing-program list; NGC 2000.0: Sky Publishing; OpenNGC CC-BY-SA-4.0; scientific research only",
         finest_ngc,
     )
     write_catalog(

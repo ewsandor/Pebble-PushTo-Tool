@@ -14,7 +14,7 @@ apply to third-party data.
 | Sol System | IMCCE VSOP87D; Meeus, Astronomical Algorithms; NASA/JPL Horizons and Small-Body Database | LicenseRef-Source-Terms |
 | Brightest Stars | Yale BSC5 via NASA HEASARC; IAU WGSN stellar names | BSC5 research use; IAU names CC BY |
 | Messier | NASA HEASARC Messier and NGC 2000.0 (NGC 5866 for M102) | NGC 2000.0: Sky Publishing; scientific research only |
-| RASC Finest NGC | Royal Astronomical Society of Canada Finest NGC checklist; NASA HEASARC NGC 2000.0 | RASC observing-program list; NGC 2000.0: Sky Publishing; scientific research only |
+| RASC Finest NGC | Royal Astronomical Society of Canada Finest NGC checklist; NASA HEASARC NGC 2000.0; common names from OpenNGC | RASC observing-program list; NGC 2000.0: Sky Publishing; OpenNGC CC-BY-SA-4.0; scientific research only |
 | IAU Constellations | IAU boundaries, Davenhall and Leggett 1989 CDS VI/49; IAU names via Astropy | CDS distribution; Astropy BSD-3-Clause |
 
 ## Other sources and acknowledgements

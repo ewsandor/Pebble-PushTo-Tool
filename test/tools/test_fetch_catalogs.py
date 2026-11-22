@@ -65,6 +65,12 @@ class FetchCatalogTests(unittest.TestCase):
         self.assertEqual(len(identifiers), 110)
         self.assertEqual(len(set(identifiers)), 110)
         self.assertTrue(all(identifier.startswith("NGC ") for identifier in identifiers))
+        self.assertEqual(identifiers[0], "NGC 891")
+        self.assertEqual(identifiers[-1], "NGC 6940")
+        by_id = {row["id"]: row for row in rows}
+        self.assertEqual(by_id["NGC 2392"]["name"], "Clown Face")
+        self.assertEqual(by_id["NGC 7331"]["name"], "Deer Lick Group")
+        self.assertEqual(by_id["NGC 4565"]["name"], "Needle Galaxy")
 
 
 if __name__ == "__main__":
