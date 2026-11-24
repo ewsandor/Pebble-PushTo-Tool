@@ -140,6 +140,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
             self.assertIn(condition, issue)
         self.assertIn("issues: write", issue)
         self.assertIn("actions: read", issue)
+        self.assertIn("contents: read", issue)
         self.assertIn("pbw-release", issue)
         self.assertIn("comprehensive-report", issue)
         self.assertIn("comprehensive-release-", issue)
@@ -222,14 +223,22 @@ class ReleaseWorkflowTests(unittest.TestCase):
 
     def test_failure_ticket_creation_and_rerun_deduplication(self):
         script = shell_step("manual-publishing-issue", "Create or update manual publishing issue")
-        for existing in (False, True):
-            with self.subTest(existing=existing), tempfile.TemporaryDirectory() as directory:
+        for existing, release_failure in ((False, False), (True, False), (False, True)):
+            with self.subTest(existing=existing, release_failure=release_failure), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
+                release_url = "https://github.com/ewsandor/Pebble-PushTo-Tool/releases/tag/v0.3.2"
+                release_notes = "## Changes\n\n* Fix Node warnings (100%).\n* Keep `$(touch unexpected)` as text.\n"
+                (root / "release-fixture.json").write_text(json.dumps({
+                    "url": release_url, "body": release_notes,
+                }))
                 gh = root / "gh"
                 gh.write_text(textwrap.dedent("""\
                     #!/bin/bash
                     echo "$*" >> "$CALLS"
                     case "$1 $2" in
+                      "release view")
+                        [ "$RELEASE_FAILURE" != yes ] || { echo "Release lookup failed" >&2; exit 1; }
+                        cat release-fixture.json ;;
                       "api --paginate") printf 'pbw-release\\t123\\ncomprehensive-report\\t456\\nstore-screenshots-emery\\t789\\n' ;;
                       "issue list")
                         if [ "$EXISTING" = yes ]; then
@@ -244,11 +253,20 @@ class ReleaseWorkflowTests(unittest.TestCase):
                        "GH_REPO": "ewsandor/Pebble-PushTo-Tool", "VERSION": "0.3.2",
                        "FAILURE_STAGE": "upload", "RUN_ID": "1234",
                        "RUN_URL": "https://github.com/ewsandor/Pebble-PushTo-Tool/actions/runs/1234",
-                       "CALLS": str(root / "calls"), "EXISTING": "yes" if existing else "no"}
+                       "CALLS": str(root / "calls"), "EXISTING": "yes" if existing else "no",
+                       "RELEASE_FAILURE": "yes" if release_failure else "no"}
                 process = subprocess.run(["bash", "-c", script], cwd=root, env=env,
                                          capture_output=True, text=True)
-                self.assertEqual(process.returncode, 0, process.stderr)
                 calls = (root / "calls").read_text()
+                self.assertIn(
+                    "release view v0.3.2 --repo ewsandor/Pebble-PushTo-Tool --json url,body",
+                    calls)
+                if release_failure:
+                    self.assertNotEqual(process.returncode, 0)
+                    self.assertIn("Release lookup failed", process.stderr)
+                    self.assertNotIn("issue ", calls)
+                    continue
+                self.assertEqual(process.returncode, 0, process.stderr)
                 self.assertEqual("issue create" in calls, not existing)
                 self.assertEqual("issue comment 42" in calls, existing)
                 self.assertEqual("issue reopen 42" in calls, existing)
@@ -257,6 +275,9 @@ class ReleaseWorkflowTests(unittest.TestCase):
                 for text in ("upload", "pbw-release", "comprehensive-report",
                              "store-screenshots-emery", "/artifacts/123"):
                     self.assertIn(text, body)
+                self.assertIn(f"[GitHub release v0.3.2]({release_url})", body)
+                self.assertIn("\n".join(f"> {line}" for line in release_notes.splitlines()), body)
+                self.assertFalse((root / "unexpected").exists())
 
     def test_comprehensive_reports_are_uploaded_after_pass_or_failure(self):
         matrix = job("comprehensive")

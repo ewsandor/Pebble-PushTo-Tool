@@ -169,8 +169,10 @@ for App Store GitHub Actions publishing. Environment approval rules apply.
 
 If authentication or upload fails, the workflow reports a warning and creates
 or updates one issue per version, assigned to @ewsandor for manual publication.
-The issue links to the workflow run, release PBW, comprehensive reports and
-screenshots. These are Actions artifacts, not attachments to the issue or release,
+The issue links to the matching GitHub Release and quotes its release notes for
+copying into the Pebble App Store. It also links to the workflow run, release PBW,
+comprehensive reports and screenshots. The PBW, reports and screenshots are
+Actions artifacts, not attachments to the issue or release,
 and expire under GitHub's artifact retention policy. No issue is created when
 build, test, or screenshot gates fail or when publishing is skipped or succeeds.
 
