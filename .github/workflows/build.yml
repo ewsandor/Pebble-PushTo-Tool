@@ -120,7 +120,6 @@ jobs:
           python3 -m unittest discover -s test/emulator -v
 
   sanity-emulator:
-    if: github.ref_type != 'tag'
     needs: [build, test]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -173,7 +172,7 @@ jobs:
 
   # Stable required status for branch protection, including merge queues.
   sanity:
-    if: always() && github.ref_type != 'tag'
+    if: always()
     needs: [build, test, sanity-emulator]
     runs-on: ubuntu-24.04
     steps:
@@ -222,6 +221,7 @@ jobs:
 
   comprehensive:
     if: github.event_name == 'push' && github.ref_type == 'tag'
+    name: Comprehensive (${{ matrix.platform }}, ${{ matrix.group }})
     needs: [build, test, release]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -229,6 +229,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: ${{ fromJSON(needs.build.outputs.platforms) }}
+        group: [pointing, clock, navigation, weather, display, filters]
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-pebble
@@ -250,30 +251,36 @@ jobs:
         run: |
           python3 test/emulator/run.py --tier comprehensive --mode release \
             --platform "${{ matrix.platform }}" --pbw "$(find dist -name '*.pbw')" \
+            --group "${{ matrix.group }}" \
             --output test-results
       - name: Ensure a final comprehensive report exists
         if: always()
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          GROUP: ${{ matrix.group }}
         run: |
           python3 - <<'PY'
           import json
+          import os
           from pathlib import Path
           report = Path("test-results/summary.json")
           if not report.exists():
               report.parent.mkdir(parents=True, exist_ok=True)
               report.write_text(json.dumps({"tier": "comprehensive", "success": False,
+                  "platforms": [os.environ["PLATFORM"]], "groups": [os.environ["GROUP"]],
                   "error": "Suite did not start; inspect workflow setup logs"}) + "\n")
           PY
       - name: Upload comprehensive reports and failure evidence
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: comprehensive-release-${{ matrix.platform }}
+          name: comprehensive-release-${{ matrix.platform }}-${{ matrix.group }}
           path: test-results/
           if-no-files-found: error
 
   comprehensive-gate:
     if: always() && !cancelled() && github.event_name == 'push' && github.ref_type == 'tag'
-    needs: [build, test, release, comprehensive]
+    needs: [build, test, release, sanity, comprehensive]
     runs-on: ubuntu-24.04
     steps:
       - name: Require the comprehensive release gate
@@ -281,18 +288,19 @@ jobs:
           BUILD: ${{ needs.build.result }}
           HOST: ${{ needs.test.result }}
           RELEASE: ${{ needs.release.result }}
+          SANITY: ${{ needs.sanity.result }}
           EMULATOR: ${{ needs.comprehensive.result }}
         run: |
           python3 - <<'PY'
           import json
           import os
           from pathlib import Path
-          checks = {name.lower(): os.environ[name] for name in ("BUILD", "HOST", "RELEASE", "EMULATOR")}
+          checks = {name.lower(): os.environ[name] for name in ("BUILD", "HOST", "RELEASE", "SANITY", "EMULATOR")}
           passed = all(result == "success" for result in checks.values())
           Path("comprehensive-report.json").write_text(json.dumps({
               "tier": "comprehensive", "success": passed, "checks": checks}, indent=2) + "\n")
           if not passed:
-              raise SystemExit("Store assets require a successful release, host tests, and every emulator")
+              raise SystemExit("Store assets require a successful release, host tests, release/debug sanity, and every emulator category")
           PY
       - name: Upload final comprehensive gate report
         if: always()

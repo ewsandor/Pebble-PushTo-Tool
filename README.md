@@ -141,8 +141,9 @@ npm version 0.1.1 --no-git-tag-version
 The phone settings About section uses the version from `package.json`.
 CI uses Ubuntu 24.04, Pebble Tool 5.2.0, and SDK 4.44 to reduce toolchain drift.
 
-PRs, merge queues, pushes to `main`, and manual workflow runs build both modes
-and run the sanity suite on every supported platform. The aggregate **`sanity`**
+PRs, merge queues, pushes to `main`, release tags, and manual workflow runs build
+both release and debug modes and run the sanity suite for both modes on every
+supported platform. The aggregate **`sanity`**
 job fails if any build, host test, or sanity matrix entry fails. Workflow files
 cannot block merges on their own, so make it a required check once (repository
 admin):
@@ -158,8 +159,13 @@ admin):
 Push a matching `vX.Y.Z` tag to release. Once the build succeeds, the workflow
 creates a GitHub Release with generated notes and the release PBW, without
 waiting for tests. The release is therefore available before it has passed the
-release gate. The comprehensive suite then tests that exact PBW on every
-supported platform. Only after the host and comprehensive checks pass does
+release gate. Alongside release/debug sanity checks, the comprehensive suite
+tests only that release PBW in a separate
+job for each supported platform and test category (`pointing`, `clock`,
+`navigation`, `weather`, `display`, and `filters`). Each category/watch pair can
+be rerun independently and uploads its own uniquely named report artifact.
+The release gate requires every comprehensive pair and release/debug sanity
+to succeed. Only after the host, sanity, and comprehensive checks pass does
 `store-screenshots` capture native-resolution PNGs from the same release PBW
 on every platform. The workflow then attempts to publish the tested PBW to the
 Pebble App Store, unless that version already exists. Configure the GitHub
@@ -370,8 +376,9 @@ on failure. Tests change emulator time, location, settings and object selection;
 do not use an emulator concurrently for interactive work. The serial runner
 uses the Pebble CLI's managed VNC emulator, which uses one display and can stop
 another VNC emulator when switching platforms. Use the isolated parallel
-launcher above for concurrent local runs. GitHub Actions runs its platform/mode
-matrix in parallel on separate runners. For IPv4-only
+launcher above for concurrent local runs. GitHub Actions runs the sanity
+platform/mode matrix and the comprehensive platform/category matrix in parallel
+on separate runners. For IPv4-only
 containers, use the temporary `PYTHONPATH` workaround in [AGENTS.md](AGENTS.md).
 
 **Sanity** covers Sun, Moon, planets, a minor planet, a star and a DSO, both

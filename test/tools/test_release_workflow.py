@@ -1,3 +1,4 @@
+import ast
 import json
 import os
 from pathlib import Path
@@ -125,7 +126,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("files: dist/*.pbw", release)
         self.assertIn("generate_release_notes: true", release)
         self.assertIn("needs: [build, test, release]", job("comprehensive"))
-        self.assertIn("needs: [build, test, release, comprehensive]", job("comprehensive-gate"))
+        self.assertIn("needs: [build, test, release, sanity, comprehensive]", job("comprehensive-gate"))
         self.assertIn("needs: [build, release, comprehensive-gate]", job("store-screenshots"))
         self.assertIn("needs: [build, release, comprehensive-gate, store-screenshots]", job("publish"))
         for name in ("comprehensive", "store-screenshots", "publish"):
@@ -279,6 +280,22 @@ class ReleaseWorkflowTests(unittest.TestCase):
                 self.assertIn("\n".join(f"> {line}" for line in release_notes.splitlines()), body)
                 self.assertFalse((root / "unexpected").exists())
 
+    def test_sanity_includes_release_tags_and_both_modes(self):
+        matrix = job("sanity-emulator")
+        self.assertNotRegex(matrix, r"(?m)^    if:")
+        self.assertIn("needs: [build, test]", matrix)
+        self.assertIn("mode: [release, debug]", matrix)
+        self.assertIn("name: pbw-${{ matrix.mode }}", matrix)
+        self.assertIn('--tier sanity --mode "${{ matrix.mode }}"', matrix)
+        gate = job("sanity")
+        self.assertRegex(gate, r"(?m)^    if: always\(\)$")
+        self.assertIn("needs: [build, test, sanity-emulator]", gate)
+        comprehensive = job("comprehensive")
+        self.assertIn("github.event_name == 'push' && github.ref_type == 'tag'", comprehensive)
+        self.assertIn("--tier comprehensive --mode release", comprehensive)
+        self.assertIn("name: pbw-release", comprehensive)
+        self.assertNotRegex(comprehensive, r"(?m)^        mode:")
+
     def test_comprehensive_reports_are_uploaded_after_pass_or_failure(self):
         matrix = job("comprehensive")
         self.assertRegex(matrix, r"(?m)^      fail-fast: false$")
@@ -286,22 +303,40 @@ class ReleaseWorkflowTests(unittest.TestCase):
                          r"        if: always\(\)$")
         self.assertRegex(matrix, r"(?m)^      - name: Upload comprehensive reports and failure evidence\n"
                          r"        if: always\(\)$")
-        self.assertIn("name: comprehensive-release-${{ matrix.platform }}", matrix)
+        self.assertIn(
+            "name: comprehensive-release-${{ matrix.platform }}-${{ matrix.group }}", matrix)
         gate = job("comprehensive-gate")
         self.assertIn("if: always() && !cancelled()", gate)
         self.assertRegex(gate, r"(?m)^      - name: Upload final comprehensive gate report\n"
                          r"        if: always\(\)$")
         self.assertIn("name: comprehensive-report", gate)
 
+    def test_comprehensive_matrix_covers_every_runner_category(self):
+        matrix = job("comprehensive")
+        group_list = re.search(r"(?m)^        group: \[(.+)\]$", matrix).group(1)
+        groups = [group.strip() for group in group_list.split(",")]
+        runner = ast.parse((ROOT / "test/emulator/run.py").read_text(encoding="utf-8"))
+        runner_groups = next(ast.literal_eval(node.value) for node in runner.body
+                             if isinstance(node, ast.Assign) and
+                             any(isinstance(target, ast.Name) and target.id == "GROUPS"
+                                 for target in node.targets))
+        self.assertCountEqual(groups, runner_groups)
+        self.assertIn("platform: ${{ fromJSON(needs.build.outputs.platforms) }}", matrix)
+        self.assertIn("name: Comprehensive (${{ matrix.platform }}, ${{ matrix.group }})", matrix)
+        self.assertIn('--group "${{ matrix.group }}"', matrix)
+        self.assertIn('"platforms": [os.environ["PLATFORM"]], "groups": [os.environ["GROUP"]]', matrix)
+        self.assertIn("needs: [build, test, release, sanity, comprehensive]", job("comprehensive-gate"))
+
     def test_gate_requires_each_prerequisite_and_writes_report(self):
         gate = job("comprehensive-gate")
         for name, dependency in (("BUILD", "build"), ("HOST", "test"),
-                                 ("RELEASE", "release"), ("EMULATOR", "comprehensive")):
+                                 ("RELEASE", "release"), ("SANITY", "sanity"),
+                                 ("EMULATOR", "comprehensive")):
             self.assertIn(f"{name}: ${{{{ needs.{dependency}.result }}}}", gate)
         script = re.search(r"(?ms)^          python3 - <<'PY'\n(.*?)^          PY$", gate)
         self.assertIsNotNone(script)
         script = textwrap.dedent(script.group(1))
-        names = ("BUILD", "HOST", "RELEASE", "EMULATOR")
+        names = ("BUILD", "HOST", "RELEASE", "SANITY", "EMULATOR")
         for failed in (None, *names):
             for result in (("success",) if failed is None else ("failure", "skipped", "cancelled")):
                 checks = {name: result if name == failed else "success" for name in names}
