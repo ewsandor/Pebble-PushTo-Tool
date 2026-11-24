@@ -107,11 +107,13 @@ async function main() {
   assert.equal(shown.meta.userData.lastFix.latitude, 51.5);
   const configText = JSON.stringify(shown.config);
   const { pebble, version } = require('../../package.json');
-  assert.ok(configText.includes(`${pebble.displayName} ${version}.`));
-  assert.match(configText, /Minor-planet elements cover 2026-2036/);
+  assert.ok(configText.includes(`<strong>${pebble.displayName} ${version}</strong>`));
+  assert.match(configText, /Minor-planet elements are valid from 2026 through 2036/);
   assert.match(configText, /Sonia Keys \(MIT\)/);
   assert.match(configText, /Pebble iconography, Apache-2\.0/);
-  assert.match(configText, /Test source/);
+  assert.match(configText, /<strong>Test catalog<\/strong><br>Source: Test source<br>Terms: CC0-1\.0/);
+  assert.match(configText, /<strong>Algorithms and code<\/strong>/);
+  assert.match(configText, /<strong>Catalog sources and terms<\/strong>/);
   assert.match(configText, /personal and scientific use only/);
   assert.match(configText, /bending of light by the atmosphere/);
   assert.match(configText, /larger numbers are dimmer/);
