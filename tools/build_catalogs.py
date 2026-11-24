@@ -27,6 +27,8 @@ OBJECT_TYPES = {
     "planetary_nebula": 5,
     "constellation": 6,
     "other": 7,
+    "double_star": 8,
+    "asterism": 9,
 }
 
 

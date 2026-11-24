@@ -192,14 +192,98 @@ def bright_stars():
 
 
 MESSIER_NAMES = {
-    1: "Crab Nebula", 8: "Lagoon Nebula", 13: "Hercules Cluster",
-    16: "Eagle Nebula", 17: "Omega Nebula", 20: "Trifid Nebula",
-    27: "Dumbbell Nebula", 31: "Andromeda Galaxy", 33: "Triangulum Galaxy",
-    42: "Orion Nebula", 51: "Whirlpool Galaxy", 57: "Ring Nebula",
-    63: "Sunflower Galaxy", 64: "Black Eye Galaxy", 81: "Bode's Galaxy",
-    82: "Cigar Galaxy", 97: "Owl Nebula", 101: "Pinwheel Galaxy",
-    102: "Spindle Galaxy", 104: "Sombrero Galaxy",
+    1: "Crab Nebula", 4: "Spider Globular Cluster",
+    6: "Butterfly Cluster", 7: "Ptolemy's Cluster",
+    8: "Lagoon Nebula", 11: "Wild Duck Cluster",
+    13: "Hercules Cluster", 15: "Great Pegasus Cluster",
+    16: "Eagle Nebula", 17: "Omega Nebula",
+    18: "Black Swan Cluster",
+    20: "Trifid Nebula", 21: "Webb's Cross",
+    22: "Great Sagittarius Cluster", 24: "Small Sagittarius Star Cloud",
+    27: "Dumbbell Nebula", 29: "Cooling Tower Cluster",
+    30: "Jellyfish Cluster", 31: "Andromeda Galaxy",
+    33: "Triangulum Galaxy", 34: "Spiral Cluster",
+    35: "Shoe-Buckle Cluster", 36: "Pinwheel Cluster",
+    37: "Salt and Pepper Cluster", 38: "Starfish Cluster",
+    39: "Pyramid Cluster", 41: "Little Beehive Cluster",
+    42: "Orion Nebula", 43: "Mairan's Nebula",
+    44: "Beehive Cluster", 45: "Pleiades", 50: "Heart-shaped Cluster",
+    51: "Whirlpool Galaxy", 52: "Scorpion Cluster",
+    55: "Specter Cluster",
+    57: "Ring Nebula", 61: "Swelling Spiral Galaxy",
+    62: "Flickering Globular Cluster", 63: "Sunflower Galaxy",
+    64: "Black Eye Galaxy",
+    67: "King Cobra Cluster", 71: "Angelfish Cluster",
+    74: "Phantom Galaxy", 76: "Little Dumbbell Nebula",
+    77: "Squid Galaxy", 81: "Bode's Galaxy",
+    82: "Cigar Galaxy", 83: "Southern Pinwheel Galaxy",
+    87: "Virgo Galaxy", 90: "Carabin Galaxy", 93: "Critter Cluster",
+    94: "Cat's Eye Galaxy", 97: "Owl Nebula", 99: "Coma Pinwheel",
+    100: "Mirror Galaxy",
+    101: "Pinwheel Galaxy", 102: "Spindle Galaxy",
+    104: "Sombrero Galaxy", 107: "Crucifix Cluster",
+    108: "Surfboard Galaxy", 109: "Vacuum Cleaner Galaxy",
 }
+
+MESSIER_TYPES = {
+    **dict.fromkeys((1, 8, 17, 20, 42, 43, 78), "nebula"),
+    **dict.fromkeys((2, 3, 4, 5, 9, 10, 12, 13, 14, 15, 19, 22, 28,
+                     30, 53, 54, 55, 56, 62, 68, 69, 70, 71, 72, 75,
+                     79, 80, 92, 107), "globular_cluster"),
+    **dict.fromkeys((6, 7, 11, 16, 18, 21, 23, 25, 26, 29, 34, 35, 36,
+                     37, 38, 39, 41, 44, 45, 46, 47, 48, 50, 52, 67,
+                     93, 103), "open_cluster"),
+    **dict.fromkeys((27, 57, 76, 97), "planetary_nebula"),
+    **dict.fromkeys((31, 32, 33, 49, 51, 58, 59, 60, 61, 63, 64, 65,
+                     66, 74, 77, 81, 82, 83, 84, 85, 86, 87, 88, 89,
+                     90, 91, 94, 95, 96, 98, 99, 100, 101, 102, 104,
+                     105, 106, 108, 109, 110), "galaxy"),
+    24: "other",
+    40: "double_star",
+    73: "asterism",
+}
+
+OBJECT_TYPE_NAMES = {
+    "star": "Star",
+    "galaxy": "Galaxy",
+    "open_cluster": "Open cluster",
+    "globular_cluster": "Globular cluster",
+    "nebula": "Nebula",
+    "planetary_nebula": "Planetary nebula",
+    "constellation": "Constellation",
+    "double_star": "Double star",
+    "asterism": "Asterism",
+    "other": "Deep-sky object",
+}
+
+RASC_NAME_OVERRIDES = {
+    "NGC 891": "Silver Needle Galaxy",
+    "NGC 7662": "Blue Snowball Nebula",
+    "NGC 457": "ET Cluster",
+    "NGC 2403": "",
+    "NGC 185": "",
+    "NGC 663": "",
+    "NGC 936": "",
+    "NGC 2903": "",
+    "NGC 6940": "",
+    "NGC 7129": "Small Cluster Nebula",
+    "NGC 7027": "Magic Carpet",
+    "NGC 5907": "Splinter Galaxy",
+    "NGC 1535": "Cleopatra's Eye",
+    "NGC 6210": "Turtle Nebula",
+    "NGC 3242": "Ghost of Jupiter",
+    "NGC 6960": "Veil Nebula (West)",
+    "NGC 6992": "Veil Nebula (East)",
+    "NGC 2683": "UFO Galaxy",
+    "NGC 4244": "Silver Needle Galaxy",
+    "NGC 4656": "Hockey Stick Galaxy",
+    "NGC 4535": "Lost Galaxy",
+}
+
+
+def display_name(name, object_type):
+    """Use a readable object-type label when no common name is available."""
+    return name.strip() if name and name.strip() else OBJECT_TYPE_NAMES[object_type]
 
 
 def messier():
@@ -223,12 +307,18 @@ def messier():
                   "vmag": ngc[0]["app_mag"], "object_type": "S"}
     if set(by_id) != set(range(1, 111)):
         raise ValueError(f"Incomplete Messier catalog: {sorted(set(range(1, 111)) - set(by_id))}")
-    types = {"Di": "nebula", "Gb": "globular_cluster", "OC": "open_cluster",
+    types = {"Di": "nebula", "Gb": "globular_cluster", "GCl": "globular_cluster",
+             "OC": "open_cluster",
              "Pl": "planetary_nebula", "E": "galaxy", "Ir": "galaxy",
-             "S": "galaxy"}
-    return [fixed_row(f"M{i}", MESSIER_NAMES.get(i, ""), by_id[i]["ra"],
+             "S": "galaxy", "SNR": "nebula", "HII": "nebula",
+             "RfN": "nebula", "Neb": "nebula", "Other": "other"}
+    return [fixed_row(f"M{i}", display_name(
+                          MESSIER_NAMES.get(i, ""),
+                          MESSIER_TYPES.get(i, types.get(by_id[i]["object_type"], "other"))),
+                      by_id[i]["ra"],
                       by_id[i]["dec"], by_id[i]["vmag"],
-                      object_type=types.get(by_id[i]["object_type"], "other"))
+                      object_type=MESSIER_TYPES.get(
+                          i, types.get(by_id[i]["object_type"], "other")))
             for i in range(1, 111)]
 
 
@@ -317,9 +407,13 @@ def rasc_finest_ngc():
         "Di": "nebula", "Gb": "globular_cluster", "OC": "open_cluster",
         "Pl": "planetary_nebula", "E": "galaxy", "Ir": "galaxy", "S": "galaxy",
     }
+    types["G"] = "galaxy"
     return [
         fixed_row(
-            identifier, rows_by_id[identifier].get("name", ""),
+            identifier, display_name(
+                RASC_NAME_OVERRIDES.get(identifier, rows_by_id[identifier].get("name", "")),
+                types.get(by_id[identifier]["object_type"], "other"),
+            ),
             by_id[identifier]["ra"], by_id[identifier]["dec"],
             by_id[identifier]["app_mag"],
             object_type=types.get(by_id[identifier]["object_type"], "other"),
@@ -354,12 +448,13 @@ def main():
     )
     write_catalog(
         "messier.csv", "Messier", "Messier",
-        "NASA HEASARC Messier and NGC 2000.0 (NGC 5866 for M102)",
-        "NGC 2000.0: Sky Publishing; scientific research only", objects,
+        "NASA HEASARC Messier and NGC 2000.0 (NGC 5866 for M102); common names from OpenNGC and Wikipedia Messier object articles",
+        "NGC 2000.0: Sky Publishing; OpenNGC CC-BY-SA-4.0; Wikipedia CC-BY-SA-4.0; scientific research only",
+        objects,
     )
     write_catalog(
         "rasc_finest_ngc.csv", "RASC Finest NGC", "Finest NGC",
-        "Royal Astronomical Society of Canada Finest NGC checklist; NASA HEASARC NGC 2000.0; common names from OpenNGC",
+        "RASC Finest NGC checklist; NASA HEASARC NGC 2000.0; common names from the RASC checklist and OpenNGC",
         "RASC observing-program list; NGC 2000.0: Sky Publishing; OpenNGC CC-BY-SA-4.0; scientific research only",
         finest_ngc,
     )
