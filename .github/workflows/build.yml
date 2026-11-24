@@ -25,7 +25,7 @@ jobs:
       version: ${{ steps.meta.outputs.version }}
       platforms: ${{ steps.meta.outputs.platforms }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: ./.github/actions/setup-pebble
 
@@ -84,26 +84,27 @@ jobs:
                   raise SystemExit(f"Debug {field} is incorrect: {debug[field]}")
           PY
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: pbw-release
           path: dist/*.pbw
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: pbw-debug
           path: build/*.pbw
           if-no-files-found: error
 
-  test:
+  host-tests:
+    name: Host tests (native C, Python, Node.js)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
-      - uses: actions/setup-python@v5
+          node-version: 24
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Host C tests
@@ -120,8 +121,7 @@ jobs:
           python3 -m unittest discover -s test/emulator -v
 
   sanity-emulator:
-    if: github.ref_type != 'tag'
-    needs: [build, test]
+    needs: [build, host-tests]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
@@ -130,10 +130,10 @@ jobs:
         platform: ${{ fromJSON(needs.build.outputs.platforms) }}
         mode: [release, debug]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-pebble
       - run: python3 -m pip install -r test/emulator/requirements.txt
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: pbw-${{ matrix.mode }}
           path: dist
@@ -165,7 +165,7 @@ jobs:
           PY
       - name: Upload sanity reports and failure evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sanity-${{ matrix.mode }}-${{ matrix.platform }}
           path: test-results/
@@ -173,14 +173,14 @@ jobs:
 
   # Stable required status for branch protection, including merge queues.
   sanity:
-    if: always() && github.ref_type != 'tag'
-    needs: [build, test, sanity-emulator]
+    if: always()
+    needs: [build, host-tests, sanity-emulator]
     runs-on: ubuntu-24.04
     steps:
       - name: Require every sanity matrix entry
         env:
           BUILD: ${{ needs.build.result }}
-          HOST: ${{ needs.test.result }}
+          HOST: ${{ needs.host-tests.result }}
           EMULATOR: ${{ needs.sanity-emulator.result }}
         run: |
           python3 - <<'PY'
@@ -196,7 +196,7 @@ jobs:
           PY
       - name: Upload final sanity gate report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sanity-report
           path: sanity-report.json
@@ -210,7 +210,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: pbw-release
           path: dist
@@ -222,18 +222,20 @@ jobs:
 
   comprehensive:
     if: github.event_name == 'push' && github.ref_type == 'tag'
-    needs: [build, test, release]
+    name: Comprehensive (${{ matrix.platform }}, ${{ matrix.group }})
+    needs: [build, host-tests, release]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
         platform: ${{ fromJSON(needs.build.outputs.platforms) }}
+        group: [pointing, clock, navigation, weather, display, filters]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-pebble
       - run: python3 -m pip install -r test/emulator/requirements.txt
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: pbw-release
           path: dist
@@ -250,53 +252,60 @@ jobs:
         run: |
           python3 test/emulator/run.py --tier comprehensive --mode release \
             --platform "${{ matrix.platform }}" --pbw "$(find dist -name '*.pbw')" \
+            --group "${{ matrix.group }}" \
             --output test-results
       - name: Ensure a final comprehensive report exists
         if: always()
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          GROUP: ${{ matrix.group }}
         run: |
           python3 - <<'PY'
           import json
+          import os
           from pathlib import Path
           report = Path("test-results/summary.json")
           if not report.exists():
               report.parent.mkdir(parents=True, exist_ok=True)
               report.write_text(json.dumps({"tier": "comprehensive", "success": False,
+                  "platforms": [os.environ["PLATFORM"]], "groups": [os.environ["GROUP"]],
                   "error": "Suite did not start; inspect workflow setup logs"}) + "\n")
           PY
       - name: Upload comprehensive reports and failure evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
-          name: comprehensive-release-${{ matrix.platform }}
+          name: comprehensive-release-${{ matrix.platform }}-${{ matrix.group }}
           path: test-results/
           if-no-files-found: error
 
   comprehensive-gate:
     if: always() && !cancelled() && github.event_name == 'push' && github.ref_type == 'tag'
-    needs: [build, test, release, comprehensive]
+    needs: [build, host-tests, release, sanity, comprehensive]
     runs-on: ubuntu-24.04
     steps:
       - name: Require the comprehensive release gate
         env:
           BUILD: ${{ needs.build.result }}
-          HOST: ${{ needs.test.result }}
+          HOST: ${{ needs.host-tests.result }}
           RELEASE: ${{ needs.release.result }}
+          SANITY: ${{ needs.sanity.result }}
           EMULATOR: ${{ needs.comprehensive.result }}
         run: |
           python3 - <<'PY'
           import json
           import os
           from pathlib import Path
-          checks = {name.lower(): os.environ[name] for name in ("BUILD", "HOST", "RELEASE", "EMULATOR")}
+          checks = {name.lower(): os.environ[name] for name in ("BUILD", "HOST", "RELEASE", "SANITY", "EMULATOR")}
           passed = all(result == "success" for result in checks.values())
           Path("comprehensive-report.json").write_text(json.dumps({
               "tier": "comprehensive", "success": passed, "checks": checks}, indent=2) + "\n")
           if not passed:
-              raise SystemExit("Store assets require a successful release, host tests, and every emulator")
+              raise SystemExit("Store assets require a successful release, host tests, release/debug sanity, and every emulator category")
           PY
       - name: Upload final comprehensive gate report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: comprehensive-report
           path: comprehensive-report.json
@@ -310,10 +319,10 @@ jobs:
       matrix:
         platform: ${{ fromJSON(needs.build.outputs.platforms) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-pebble
       - run: python3 -m pip install -r test/emulator/requirements.txt
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: pbw-release
           path: dist
@@ -324,14 +333,14 @@ jobs:
           python3 test/emulator/store_screenshots.py --platform "${{ matrix.platform }}" \
             --pbw "dist/Pebble-PushTo-Tool-${{ needs.build.outputs.version }}.pbw" --output store-screenshots
       - name: Upload screenshots
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: store-screenshots-${{ matrix.platform }}
           path: store-screenshots/${{ matrix.platform }}/*.png
           if-no-files-found: error
       - name: Upload capture logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: store-screenshot-logs-${{ matrix.platform }}
           path: store-screenshots/logs/
@@ -348,10 +357,10 @@ jobs:
       outcome: ${{ steps.publish.outcome }}
       stage: ${{ steps.publish.outputs.stage }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: pbw-release
           path: dist
@@ -399,6 +408,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       actions: read
+      contents: read
       issues: write
     steps:
       - name: Create or update manual publishing issue
@@ -413,15 +423,22 @@ jobs:
           set -euo pipefail
           [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.+-][A-Za-z0-9.+-]+)?$ ]] || { echo "Invalid version" >&2; exit 1; }
           title="Publish PushTo Tool v$VERSION"
+          gh release view "v$VERSION" --repo "$GH_REPO" --json url,body > release.json
+          release_url=$(jq -er '.url | select(type == "string" and length > 0)' release.json)
+          jq -er '.body | select(type == "string")' release.json > release-notes.md
           gh api --paginate "repos/$GH_REPO/actions/runs/$RUN_ID/artifacts?per_page=100" \
             --jq '.artifacts[] | select(.expired == false) | select(.name == "pbw-release" or .name == "comprehensive-report" or (.name | startswith("comprehensive-release-")) or (.name | startswith("store-screenshots-"))) | [.name, (.id | tostring)] | @tsv' > artifacts.tsv
           {
             printf 'Automatic Pebble App Store publication failed during **%s**. [View the workflow run](%s).\n\n' "$FAILURE_STAGE" "$RUN_URL"
+            printf '[GitHub release v%s](%s)\n\n' "$VERSION" "$release_url"
             printf '### Manual publishing\n\n'
             printf '%s\n' '- [ ] Review the comprehensive test reports and screenshots.' \
               '- [ ] Download the release PBW and publish it in the Pebble Developer Dashboard.' \
+              '- [ ] Copy the release notes below into the Pebble App Store release notes.' \
               '- [ ] Upload the desired screenshots and verify the store listing.' \
               '- [ ] Close this issue once publication is complete.'
+            printf '\n### Release notes\n\nCopy the following release notes when manually publishing:\n\n'
+            sed 's/^/> /' release-notes.md
             printf '\n### Workflow artifacts\n\n'
             while IFS=$'\t' read -r name id; do
               printf -- '- [%s](%s/artifacts/%s)\n' "$name" "$RUN_URL" "$id"

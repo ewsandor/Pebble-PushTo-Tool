@@ -149,6 +149,17 @@ class RunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "No sanity cases"):
             run.select_cases("sanity", cases, [], ["filters"])
 
+    def test_comprehensive_categories_partition_the_full_suite(self):
+        cases = run.reference_cases("comprehensive", run.catalogs())
+        full_suite = run.select_cases("comprehensive", cases, [], [])
+        shards = [run.select_cases("comprehensive", cases, [], [group])
+                  for group in run.GROUPS]
+        self.assertTrue(all(shards))
+        self.assertCountEqual([entry for shard in shards for entry in shard], full_suite)
+        for group, shard in zip(run.GROUPS, shards):
+            with self.subTest(group=group):
+                self.assertEqual({category for _, category in shard}, {group})
+
     def test_selected_cases_are_the_only_cases_run_and_reported(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
