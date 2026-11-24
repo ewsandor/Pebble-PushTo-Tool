@@ -140,6 +140,10 @@ npm version 0.1.1 --no-git-tag-version
 
 The phone settings About section uses the version from `package.json`.
 CI uses Ubuntu 24.04, Pebble Tool 5.2.0, and SDK 4.44 to reduce toolchain drift.
+The **Host tests (native C, Python, Node.js)** job (`host-tests`) runs in parallel
+with `build`. It compiles C tests natively for the runner and runs Python and
+Node.js unit tests, including tests of the emulator tooling. It does not run
+watch acceptance tests or consume a PBW.
 
 PRs, merge queues, pushes to `main`, release tags, and manual workflow runs build
 both release and debug modes and run the sanity suite for both modes on every

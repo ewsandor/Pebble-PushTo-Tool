@@ -125,8 +125,8 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("name: pbw-release", release)
         self.assertIn("files: dist/*.pbw", release)
         self.assertIn("generate_release_notes: true", release)
-        self.assertIn("needs: [build, test, release]", job("comprehensive"))
-        self.assertIn("needs: [build, test, release, sanity, comprehensive]", job("comprehensive-gate"))
+        self.assertIn("needs: [build, host-tests, release]", job("comprehensive"))
+        self.assertIn("needs: [build, host-tests, release, sanity, comprehensive]", job("comprehensive-gate"))
         self.assertIn("needs: [build, release, comprehensive-gate]", job("store-screenshots"))
         self.assertIn("needs: [build, release, comprehensive-gate, store-screenshots]", job("publish"))
         for name in ("comprehensive", "store-screenshots", "publish"):
@@ -283,18 +283,27 @@ class ReleaseWorkflowTests(unittest.TestCase):
     def test_sanity_includes_release_tags_and_both_modes(self):
         matrix = job("sanity-emulator")
         self.assertNotRegex(matrix, r"(?m)^    if:")
-        self.assertIn("needs: [build, test]", matrix)
+        self.assertIn("needs: [build, host-tests]", matrix)
         self.assertIn("mode: [release, debug]", matrix)
         self.assertIn("name: pbw-${{ matrix.mode }}", matrix)
         self.assertIn('--tier sanity --mode "${{ matrix.mode }}"', matrix)
         gate = job("sanity")
         self.assertRegex(gate, r"(?m)^    if: always\(\)$")
-        self.assertIn("needs: [build, test, sanity-emulator]", gate)
+        self.assertIn("needs: [build, host-tests, sanity-emulator]", gate)
+        self.assertIn("HOST: ${{ needs.host-tests.result }}", gate)
         comprehensive = job("comprehensive")
         self.assertIn("github.event_name == 'push' && github.ref_type == 'tag'", comprehensive)
         self.assertIn("--tier comprehensive --mode release", comprehensive)
         self.assertIn("name: pbw-release", comprehensive)
         self.assertNotRegex(comprehensive, r"(?m)^        mode:")
+
+    def test_host_tests_remain_independent_of_watch_build(self):
+        host = job("host-tests")
+        self.assertIn("name: Host tests (native C, Python, Node.js)", host)
+        self.assertNotRegex(host, r"(?m)^    needs:")
+        self.assertNotIn("download-artifact", host)
+        self.assertNotRegex(WORKFLOW, r"(?m)^  test:")
+        self.assertNotIn("needs.test.", WORKFLOW)
 
     def test_comprehensive_reports_are_uploaded_after_pass_or_failure(self):
         matrix = job("comprehensive")
@@ -325,11 +334,11 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("name: Comprehensive (${{ matrix.platform }}, ${{ matrix.group }})", matrix)
         self.assertIn('--group "${{ matrix.group }}"', matrix)
         self.assertIn('"platforms": [os.environ["PLATFORM"]], "groups": [os.environ["GROUP"]]', matrix)
-        self.assertIn("needs: [build, test, release, sanity, comprehensive]", job("comprehensive-gate"))
+        self.assertIn("needs: [build, host-tests, release, sanity, comprehensive]", job("comprehensive-gate"))
 
     def test_gate_requires_each_prerequisite_and_writes_report(self):
         gate = job("comprehensive-gate")
-        for name, dependency in (("BUILD", "build"), ("HOST", "test"),
+        for name, dependency in (("BUILD", "build"), ("HOST", "host-tests"),
                                  ("RELEASE", "release"), ("SANITY", "sanity"),
                                  ("EMULATOR", "comprehensive")):
             self.assertIn(f"{name}: ${{{{ needs.{dependency}.result }}}}", gate)

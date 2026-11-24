@@ -96,7 +96,8 @@ jobs:
           path: build/*.pbw
           if-no-files-found: error
 
-  test:
+  host-tests:
+    name: Host tests (native C, Python, Node.js)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -120,7 +121,7 @@ jobs:
           python3 -m unittest discover -s test/emulator -v
 
   sanity-emulator:
-    needs: [build, test]
+    needs: [build, host-tests]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
@@ -173,13 +174,13 @@ jobs:
   # Stable required status for branch protection, including merge queues.
   sanity:
     if: always()
-    needs: [build, test, sanity-emulator]
+    needs: [build, host-tests, sanity-emulator]
     runs-on: ubuntu-24.04
     steps:
       - name: Require every sanity matrix entry
         env:
           BUILD: ${{ needs.build.result }}
-          HOST: ${{ needs.test.result }}
+          HOST: ${{ needs.host-tests.result }}
           EMULATOR: ${{ needs.sanity-emulator.result }}
         run: |
           python3 - <<'PY'
@@ -222,7 +223,7 @@ jobs:
   comprehensive:
     if: github.event_name == 'push' && github.ref_type == 'tag'
     name: Comprehensive (${{ matrix.platform }}, ${{ matrix.group }})
-    needs: [build, test, release]
+    needs: [build, host-tests, release]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     strategy:
@@ -280,13 +281,13 @@ jobs:
 
   comprehensive-gate:
     if: always() && !cancelled() && github.event_name == 'push' && github.ref_type == 'tag'
-    needs: [build, test, release, sanity, comprehensive]
+    needs: [build, host-tests, release, sanity, comprehensive]
     runs-on: ubuntu-24.04
     steps:
       - name: Require the comprehensive release gate
         env:
           BUILD: ${{ needs.build.result }}
-          HOST: ${{ needs.test.result }}
+          HOST: ${{ needs.host-tests.result }}
           RELEASE: ${{ needs.release.result }}
           SANITY: ${{ needs.sanity.result }}
           EMULATOR: ${{ needs.comprehensive.result }}
