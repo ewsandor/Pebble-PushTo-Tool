@@ -20,9 +20,10 @@ function toggle(key, label, description) {
 /* page: {notice, catalogCredits} supplied when the page opens. */
 module.exports = function(page) {
   var credits = (page.catalogCredits || []).map(function(credit) {
-    return '<li>' + escapeHtml(credit.title + ': ' + credit.source + ' (' + credit.license + ')') +
-      '</li>';
-  }).join('');
+    return '<strong>' + escapeHtml(credit.title) + '</strong><br>Source: ' +
+      escapeHtml(credit.source).replace(/; /g, ';<br>') + '<br>Terms: ' +
+      escapeHtml(credit.license).replace(/; /g, ';<br>');
+  }).join('<br><br>');
   var lowMemoryPlatforms = ['basalt', 'chalk', 'diorite', 'flint'];
   var displayItems = [
     {type: 'heading', defaultValue: 'Display'},
@@ -103,14 +104,18 @@ module.exports = function(page) {
     {type: 'section', items: [
       {type: 'heading', defaultValue: 'About'},
       {type: 'text', defaultValue:
-       '<p>' + appName + ' ' + escapeHtml(appVersion) +
-       '. Minor-planet elements cover 2026-2036.</p>' +
-       '<p>Algorithms: J. Meeus, Astronomical Algorithms; VSOP87, Bretagnon &amp; Francou / ' +
-       'IMCCE; NASA/JPL Horizons and SBDB; Sonia Keys (MIT).</p>' +
-       '<p>Icons: Pebble iconography, Apache-2.0.</p><ul>' + credits + '</ul>' +
-       '<p>Catalog data are for personal and scientific use only; review each ' +
-       'source\'s terms.</p>' +
-       '<p>Source and complete credits: https://github.com/ewsandor/Pebble-PushTo-Tool</p>'}
+       '<strong>' + appName + ' ' + escapeHtml(appVersion) +
+       '</strong><hr><br>' +
+       '<strong>Algorithms and code</strong><br>' +
+       '&bull; J. Meeus, Astronomical Algorithms.<br>' +
+       '&bull; VSOP87, Bretagnon &amp; Francou / IMCCE.<br>' +
+       '&bull; NASA/JPL Horizons and SBDB.<br>' +
+       '&bull; Sonia Keys (MIT).<br><br>' +
+       '<strong>Icons</strong><br>Pebble iconography, Apache-2.0.<br><br>' +
+       '<strong>Catalog sources and terms</strong><br><br>' + credits + '<hr><br>' +
+       'Catalog data are for personal and scientific use only; review each ' +
+       'source\'s terms.<br><br>Minor-planet elements are valid from 2026 through 2036.<br><br>' +
+       'Source and complete credits: https://github.com/ewsandor/Pebble-PushTo-Tool'}
     ]},
     {type: 'submit', defaultValue: 'Save'}
   ]);
